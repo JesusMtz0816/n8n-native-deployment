@@ -1,0 +1,19 @@
+[Unit]
+Description=n8n Workflow Automation
+After=network.target postgresql.service
+
+[Service]
+
+# Trabajaremos desde /root, que es donde está el binario
+WorkingDirectory=/root
+
+# Llamamos a un script envoltorio que crearemos
+ExecStart=/usr/local/bin/n8n-start-wrapper.sh
+
+Restart=always
+User=root
+Group=root
+Type=simple
+
+[Install]
+WantedBy=multi-user.target

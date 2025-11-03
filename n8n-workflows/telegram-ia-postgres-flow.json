@@ -1,0 +1,452 @@
+{
+  "name": "FlujoenTelegram",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1536,
+        80
+      ],
+      "id": "62ffdd6b-d1ed-4c4a-a17e-469cdc8e8e92",
+      "name": "Telegram Trigger",
+      "webhookId": "609b8a81-6d3d-4343-ba75-129c90a17add",
+      "credentials": {
+        "telegramApi": {
+          "id": "zMWfUVIWmGlkNpE3",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message.text }}",
+        "options": {
+          "systemMessage": "=Eres un asistente experto en PostgresSQL. Tu objetivo es:\n\n1. Recibir una pregunta en lenguaje natural sobre los datos de una base de datos de una tienda de productos electrónicos.\n2. Convertirla única y exclusivamente en una instrucción SQL SELECT válida.\n3.REGLA DE RESPUESTA Y TÉCNICA:\n- No uses lenguaje técnico como \"base de datos\", \"SQL\", \"filas\" o \"columnas\" en tu respuesta final. Usa un lenguaje natural y amigable.\n- Sé lo más flexible posiblecon la ortografía del usuario. Al hacer búsquedas de similitud (operador %), añade condiciones amplias (ej. busca en 'Audio' o 'Sonido' si el usuario pregunta por 'Audífonos').\n4. No ejecutar nunca INSERT, UPDATE, DELETE, o DROP.\n5. Usar siempre la herramienta “postgres” para ejecutar la consulta.\n6. Uso de relacion (JOIN): Para consultas que piden el nombre de la Marca o Categoría, DEBES usar la operación JOIN entre las tablas 'products', 'brands', y 'categories'.\n7. Uso de similitud: Al generar la consulta SELECT, usa la función SIMILARITY y el operador % (similitud trigram) en la cláusula WHERE y ORDER BY para filtrar y ordenar búsquedas parecidas en campos de texto (name, description). Usa el operador GREATEST para combinar varias columnas si es necesario.\n8. Tras la ejecución, utiliza los resultados para responder en lenguaje natural de manera clara y concisa.\n\nA continuación tienes la estructura completa de tu base de datos normalizada (schema DDL). Úsala para conocer nombres de tablas, columnas y tipos:\n\n'''sql\n---\n\n===================================================\n-- Script para crear la base de datos NORMALIZADA (PostgreSQL) --\n===================================================\n\n===============================================\n-- TABLA users: Auditoría de usuarios de Telegram\n===============================================\n\nCREATE TABLE users (\n    id_user SERIAL PRIMARY KEY,\n    telegram_id BIGINT UNIQUE NOT NULL,\n    name VARCHAR(100) NOT NULL\n);\n\n===============================================\n-- TABLA categories: Categorías de Productos (name)\n===============================================\n\nCREATE TABLE categories (\n    id_category SERIAL PRIMARY KEY,\n    name VARCHAR(50) NOT NULL\n);\n\n===============================================\n-- TABLA brands: Marcas de Productos (name)\n===============================================\n\nCREATE TABLE brands (\n    id_brand SERIAL PRIMARY KEY,\n    name VARCHAR(50) NOT NULL\n);\n\n===============================================\n-- TABLA products: Productos\n===============================================\n\nCREATE TABLE products (\n    id_product SERIAL PRIMARY KEY,\n    name VARCHAR(100) NOT NULL,\n    description TEXT,\n    price NUMERIC(10, 2) NOT NULL,\n    weight_grams NUMERIC(8, 2),\n    stock INTEGER NOT NULL,\n    id_category INTEGER NOT NULL REFERENCES categories(id_category),\n    id_brand INTEGER NOT NULL REFERENCES brands(id_brand)\n);\n\n===============================================\n-- TABLA interactions: Auditoría de interacciones\n===============================================\n\nCREATE TABLE interactions (\n    id_interaction SERIAL PRIMARY KEY,\n    id_user INTEGER NOT NULL REFERENCES users(id_user), \n    user_question TEXT NOT NULL\n);\n\n===============================================\n'''\n===============================================\nEjemplo 1 de Consulta (Búsqueda y Stock):\n\n``Si el usuario pregunta: \"¿Qué laptops de marca HP tienes en stock y cuál es su precio?\"\n\nLa posible consulta sería:\n\nSELECT \n    p.name, \n    p.price, \n    p.stock,\n    b.name AS brand_name\nFROM products p\nJOIN brands b ON p.id_brand = b.id_brand\nWHERE b.name % 'HP'\n  AND p.name % 'Laptop'\nORDER BY GREATEST(\n    similarity(b.name, 'HP'),\n    similarity(p.name, 'Laptop')\n) DESC\nLIMIT 5;\n\n===================================================\nEjemplo 2 (Búsqueda por Descripción y Precio):\n\nSi el usuario pregunta: \"¿Hay audífonos con cancelación de ruido de Sony que cuesten menos de 400?\"\n\nLa posible consulta sería:\n\nSELECT \n    p.name, \n    p.price\nFROM products p\nJOIN brands b ON p.id_brand = b.id_brand\nWHERE b.name % 'Sony'\n  AND p.description % 'cancelación de ruido'\n  AND p.price < 400\nORDER BY similarity(p.description, 'cancelación de ruido') DESC\nLIMIT 5;\n\n===================================================\nEjemplo 3 (Búsqueda Flexible):\n\nSi el usuario pregunta: \"¿Tienen audífonos a la venta?\"\n\nLa posible consulta sería:\n\nSELECT \n    p.name, \n    p.price, \n    c.name AS category_name\nFROM products p\nJOIN categories c ON p.id_category = c.id_category\nWHERE c.name % 'Audio' OR c.name % 'Sonido'\nORDER BY similarity(c.name, 'Audio y Sonido') DESC\nLIMIT 5;\n\n===================================================\n\n\n## Nota: \nNunca respondas con una consulta SELECT ni nada de sql. El SQL lo generas para enviarlo a tu herramienta \"postgres\" pero nunca en tu respuesta."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -1216,
+        80
+      ],
+      "id": "f243724e-fd62-460f-9d71-7032c43b6d25",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1296,
+        304
+      ],
+      "id": "0fa2210b-991f-48d1-9810-aaba10c3a232",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "CcPqMonctJ26OhTz",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.message.from.id }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -1120,
+        320
+      ],
+      "id": "c660f5b8-4d31-4000-aa62-1d9038115e3d",
+      "name": "Simple Memory",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Mapeo de datos').item.json.telegram_id }}",
+        "text": "={{ $('Mapeo de datos').item.json.resultado_bot }}",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        512,
+        112
+      ],
+      "id": "ba65a150-86e2-4a49-b2cb-ab548da6064d",
+      "name": "Send a text message",
+      "webhookId": "afe54524-2616-4db4-86c1-a9ee40b91555",
+      "notesInFlow": false,
+      "credentials": {
+        "telegramApi": {
+          "id": "zMWfUVIWmGlkNpE3",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{$fromAI('query')}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        -960,
+        304
+      ],
+      "id": "722cc0fd-0770-440b-9ec3-7a4898919416",
+      "name": "Execute a SQL query in Postgres",
+      "credentials": {
+        "postgres": {
+          "id": "L7NPzyIZeg8Iwwx9",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id_user FROM users WHERE telegram_id = {{$json.telegram_id}};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -656,
+        80
+      ],
+      "id": "3565d4b1-498a-4be4-9a35-bb4da6645697",
+      "name": "Buscar Usuario",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "L7NPzyIZeg8Iwwx9",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "59444a20-cdfa-4561-adbe-6d2ac50b5cb1",
+              "leftValue": "={{ $json.id_user }}",
+              "rightValue": "=0",
+              "operator": {
+                "type": "number",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -256,
+        80
+      ],
+      "id": "a225baaa-940d-433e-9e10-cdce032f8f3d",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO users (telegram_id, name) VALUES ({{ $('Mapeo de datos').first().json.telegram_id }}, '{{ $('Mapeo de datos').first().json.nombre_usuario }}') RETURNING id_user;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "id": "cd1feb67-d196-4f48-8efe-23a352a0f402",
+      "name": "Crear usuario",
+      "credentials": {
+        "postgres": {
+          "id": "L7NPzyIZeg8Iwwx9",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO interactions (id_user, user_question, bot_response, question_date) VALUES ((SELECT id_user FROM users WHERE telegram_id = {{ $('Mapeo de datos').first().json.telegram_id }}), '{{ $('Mapeo de datos').first().json.pregunta_usuario }}', '{{ $('Mapeo de datos').first().json.resultado_bot }}', NOW() );",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        112,
+        192
+      ],
+      "id": "29513942-87e2-4414-ab16-c3b5349bc6f7",
+      "name": "Guardar interacción",
+      "credentials": {
+        "postgres": {
+          "id": "L7NPzyIZeg8Iwwx9",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "534cab4a-501f-4047-bef7-c960604a8ae0",
+              "name": "pregunta_usuario",
+              "value": "={{ $('Telegram Trigger').item.json.message.text }}",
+              "type": "string"
+            },
+            {
+              "id": "afb09e4e-7001-4eac-8599-94f4b2f2c51a",
+              "name": "telegram_id",
+              "value": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+              "type": "string"
+            },
+            {
+              "id": "7b0f05aa-6f16-4dbc-b8be-af18554205bf",
+              "name": "nombre_usuario",
+              "value": "={{ $('Telegram Trigger').item.json.message.chat.first_name }} {{ $('Telegram Trigger').item.json.message.chat.last_name }}",
+              "type": "string"
+            },
+            {
+              "id": "b635b8e7-fd3a-4ccc-8214-242cf38f0ec9",
+              "name": "resultado_bot",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -864,
+        80
+      ],
+      "id": "90d00dea-7855-4e8f-b4bc-93bb30b09d55",
+      "name": "Mapeo de datos"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener el array de ítems de entrada del nodo 'Buscar Usuario'\nconst inputItems = $input.all();\nlet output = [];\n\n// El nodo 'Buscar Usuario' siempre devuelve 1 ítem, aunque esté vacío.\n// Por lo tanto, revisamos el contenido del primer (y único) ítem.\n\n// Obtenemos el JSON del ítem de entrada\nconst jsonInput = inputItems[0].json;\n\n// 1. Verificar si el campo 'id' NO existe o es NULL\n// Si el JSON de entrada está vacío ({}) o el ID no se encontró, esta condición es TRUE.\nif (!jsonInput.id_user) {\n    \n    // Si NO se encontró ID (usuario nuevo), emitimos un ítem con id: null\n    output.push({\n        json: {\n            id_user: null\n        }\n    });\n} else {\n    // 2. Si el campo 'id' SÍ existe y tiene valor (usuario encontrado)\n    // Devolvemos el JSON de entrada sin cambios.\n    output.push({\n        json: jsonInput\n    });\n}\n\n// Devolvemos el array de salida (1 ítem garantizado).\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        80
+      ],
+      "id": "732e23e6-32bf-48c5-a577-1c2ea9f911d1",
+      "name": "Code in JavaScript",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO interactions (id_user, user_question, bot_response, question_date) VALUES ( (SELECT id_user FROM users WHERE telegram_id = {{ $('Mapeo de datos').first().json.telegram_id }}), '{{ $('Mapeo de datos').first().json.pregunta_usuario }}', '{{ $('Mapeo de datos').first().json.resultado_bot }}', NOW() );",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        224,
+        0
+      ],
+      "id": "dc4b7d28-cf12-4938-9d89-760691e09a33",
+      "name": "Guardar interacción1",
+      "credentials": {
+        "postgres": {
+          "id": "L7NPzyIZeg8Iwwx9",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Mapeo de datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query in Postgres": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Usuario": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Crear usuario",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Guardar interacción",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear usuario": {
+      "main": [
+        [
+          {
+            "node": "Guardar interacción1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mapeo de datos": {
+      "main": [
+        [
+          {
+            "node": "Buscar Usuario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar interacción1": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar interacción": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8ea33c62-de02-4f7c-9867-f1982fdae489",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4e427284b191352fb46ed9b4f276d6bd7cdda26f6e14a271f4aa6da9fceb88c7"
+  },
+  "id": "ifLHn6VtGtoyXVPL",
+  "tags": []
+}

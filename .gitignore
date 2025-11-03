@@ -1,0 +1,14 @@
+# Credenciales y archivos de configuración sensibles
+.env
+.n8n/
+*.pem
+*.key
+*.ppk
+
+# Archivos generados por Node.js/npm (grandes y específicos)
+node_modules/
+
+# Archivos de logs y temporales
+*.log
+/logs/
+/config/.n8nrc
